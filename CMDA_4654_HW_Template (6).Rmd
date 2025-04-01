@@ -1,0 +1,123 @@
+---
+title: "CMDA-4654  \n Homework Template"
+subtitle: "Homework XX"
+author: "Your name here"
+date: "Today's Date"
+output:
+  pdf_document:
+    highlight: haddock
+keep_tex: no
+number_sections: no
+html_document:
+  df_print: paged
+geometry: margin = 0.5in
+header-includes:
+- \usepackage{booktabs}
+- \usepackage{longtable}
+- \usepackage{array}
+- \usepackage{multirow}
+- \usepackage{wrapfig}
+- \usepackage{float}
+- \usepackage{colortbl}
+- \usepackage{pdflscape}
+- \usepackage{tabu}
+- \usepackage{threeparttable}
+- \usepackage{threeparttablex}
+- \usepackage[normalem]{ulem}
+- \usepackage{makecell}
+- \usepackage{xcolor}
+editor_options:
+  chunk_output_type: console
+documentclass: article
+urlcolor: blue
+---
+  
+<!-- The above is set to automatically compile to a .pdf file.   -->
+<!-- It will only succeed if LaTeX is installed. -->
+
+
+```{r setup, include=FALSE}
+# This is the setup chunk
+#  Here you can set global options for the entire document
+
+library(knitr) # I recommend doing this here
+
+# Although you can call functions from a library using the following notation
+#  without loading the entire library.
+knitr::opts_chunk$set(echo = TRUE, 
+                      comment = NA, # Required
+                      fig.path = "./figures/",  # Store all figures here in relative path (make the folder first)
+                      fig.align = "center",
+                      fig.width = 7,
+                      fig.height = 7,
+                      message = FALSE, # Turn off load messages
+                      warning = FALSE # Turn off warnings
+                      )
+
+```
+
+\clearpage
+
+```{r include=FALSE}
+# You should not echo this chunk.
+# include=FALSE does more than echo=FALSE, it actually does: echo=FALSE, results='hide', message=FALSE, warning=FALSE, fig.show='hide'
+
+# You should set your working directory at the very beginning of your R Markdown file
+# setwd("~/Dropbox/teaching/FA2020/CMDA_4654/homework/homework1/")
+
+# In linux ~/ is shorthand for /home/username/
+# You should type things out properly for your system
+# Mac: /Users/username/Documents/CMDA4654/Lectures/Lecture_03/.../
+# Windows: C:/Users/username/Documents/etc/Lecture/Lecture_03/.../
+
+
+```
+
+<!-- ---------------------------------------------------------------------------------------------------- -->
+<!-- ---------------- Homework Problems start below these lines ----------------------------------------- -->
+<!-- ---------------------------------------------------------------------------------------------------- -->
+
+
+# Problem 1
+
+```{r}
+# Your function will have the following inputs.
+# 
+# * x - a numeric input vector
+# * y - a numeric response
+#
+# Note span and degree are shown with their default values. (Read about this in the description)
+# * degree should be 1 or 2 only
+# * span can be any value in interval (0, 1) non-inclusive.
+#
+# If show.plot = TRUE then you must show a plot of either the final fit
+
+myloess <- function(x, y, span = 0.5, degree = 1, show.plot = TRUE){
+  
+  # Your code goes here
+  
+  return(list of objects seen below) 
+}
+
+# Your function should return a named list containing the following:
+# span: proportion of data used in each window (controls the bandwidth)
+# degree: degree of polynomial
+# N_total: total number of points in the data set
+# SSE: Error Sum of Squares (Tells us how good of a fit we had).
+# MSE: The Mean Squared Error for the Predictions
+# loessplot: An object containing the ggplot so that we can see the plot later. 
+#  We want this even if show.plot = FALSE
+#  Note: you are NOT allowed to simply use stat_smooth() or geom_smooth() 
+#         to have it automatically do LOESS.
+#  You should use geom_line() or similar to plot your final the LOESS curve.
+
+# Make sure you can access the objects properly using the $ notation.
+```
+
+
+```{r}
+summary(mtcars)
+```
+
+
+
