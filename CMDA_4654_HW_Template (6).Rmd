@@ -1,8 +1,7 @@
 ---
-title: "CMDA-4654  \n Homework Template"
-subtitle: "Homework XX"
-author: "Your name here"
-date: "Today's Date"
+title: "CMDA-4654  \n Group Excercise 2"
+author: "Gavin Lopez, Hieu"
+date: "3/31/2025"
 output:
   pdf_document:
     highlight: haddock
@@ -41,7 +40,8 @@ urlcolor: blue
 #  Here you can set global options for the entire document
 
 library(knitr) # I recommend doing this here
-
+library(ggplot2)
+library(MASS)
 # Although you can call functions from a library using the following notation
 #  without loading the entire library.
 knitr::opts_chunk$set(echo = TRUE, 
@@ -78,7 +78,7 @@ knitr::opts_chunk$set(echo = TRUE,
 <!-- ---------------------------------------------------------------------------------------------------- -->
 
 
-# Problem 1
+# Part 1
 
 ```{r}
 # Your function will have the following inputs.
@@ -94,9 +94,70 @@ knitr::opts_chunk$set(echo = TRUE,
 
 myloess <- function(x, y, span = 0.5, degree = 1, show.plot = TRUE){
   
-  # Your code goes here
+  N_total <- length(x)
+  yhat <- numeric(N_total)
   
-  return(list of objects seen below) 
+  # Neighborhood size
+  # round because you cant have decimal
+  k <- ceiling(span * N_total)
+  
+  for (i in 1:N_total) {
+    
+    dists <- abs(x - x[i])
+    
+    # Get indices of the nearest neighbors
+    neighbors <- order(dists)[1:k]
+    x_local <- x[neighbors]
+    y_local <- y[neighbors]
+    
+    # tukey tri-weight
+    D <- max(abs(x_local - x[i]))
+    u <- abs(x_local - x[i]) / D
+    w <- ifelse(u < 1, (1 - abs(u)^3)^3, 0)
+    
+    # create the X matrix based on degree
+    if (degree == 1) {
+      X <- cbind(1, x_local)
+      x_i_row <- c(1, x[i])
+    } else if (degree == 2) {
+      X <- cbind(1, x_local, x_local^2)
+      x_i_row <- c(1, x[i], x[i]^2)
+    }
+    
+    # Weighted least squares (X^T W X)^(-1) X^T W y
+    W <- diag(w)
+    beta <- solve(t(X) %*% W %*% X) %*% (t(X) %*% W %*% y_local)
+    
+    # predict yhat at x[i]
+    yhat[i] <- x_i_row %*% beta
+  }
+  
+  # calculate errors
+  SSE <- sum((y - yhat)^2)
+  MSE <- SSE / N_total
+  
+  # Build the plot
+  df_plot <- data.frame(x = x, y = y, yhat = yhat)
+  loessplot <- ggplot(df_plot, aes(x = x)) +
+  geom_point(aes(y = y)) +
+  geom_line(aes(y = yhat), color = "blue", size = 1) +
+  labs(
+    title = paste("LOESS - Degree:", degree, ", Span:", round(span, 2)),
+    y = "y / yhat")
+
+  
+  if (show.plot) {
+    print(loessplot)
+  }
+  
+  return(list(
+    span = span,
+    degree = degree,
+    N_total = N_total,
+    SSE = SSE,
+    MSE = MSE,
+    loessplot = loessplot
+  ))
 }
 
 # Your function should return a named list containing the following:
@@ -115,9 +176,193 @@ myloess <- function(x, y, span = 0.5, degree = 1, show.plot = TRUE){
 ```
 
 
+## Problem 1
+
 ```{r}
-summary(mtcars)
+load("C:/Users/gavin/OneDrive/Documents/CMDA 4654/Group Exercise 2/ozone.RData")
+# data("ozone")
+
+# ggplot(ozone, aes(x = temperature, y = ozone)) + theme_bw() + geom_point()
 ```
 
+### Section 1
+```{r}
+
+ggplot(ozone, aes(x = temperature, y = ozone)) +
+  geom_point(color = "gray") +
+  stat_smooth(method = "lm", 
+              formula = y ~ poly(x, 1), 
+              aes(color = "Degree 1"), se = FALSE) +
+  stat_smooth(method = "lm", 
+              formula = y ~ poly(x, 2), 
+              aes(color = "Degree 2"), se = FALSE) +
+  stat_smooth(method = "lm", 
+              formula = y ~ poly(x, 3), 
+              aes(color = "Degree 3"), se = FALSE) +
+  stat_smooth(method = "lm", 
+              formula = y ~ poly(x, 4), 
+              aes(color = "Degree 4"), se = FALSE) +
+  stat_smooth(method = "lm", 
+              formula = y ~ poly(x, 5), 
+              aes(color = "Degree 5"), se = FALSE) +
+  stat_smooth(method = "lm", 
+              formula = y ~ poly(x, 6), 
+              aes(color = "Degree 6"), se = FALSE) +
+  labs(title = "Polynomial Fits of Degree 1–6",
+       color = "Polynomial Degree") +
+  theme_minimal()
+```
+Polynomial 5 and 6 work the best. They are practically identical to one another, following the main curvature of data, smooth, and doesnt have any extra noise/fluctuations
+
+
+### Section 2
+```{r}
+all_spans <- c()
+all_degrees <- c()
+all_MSEs <- c()
+all_SSEs <- c()
+# all_N <- c()
+# Span sequence
+spans <- seq(0.25, 0.75, by = 0.05)
+
+# Loop through degrees and spans
+for (d in c(1, 2)) {
+  for (s in spans) {
+    res <- myloess(x = ozone$temperature, y = ozone$ozone, span = s, degree = d, show.plot = FALSE)
+    
+    all_spans <- c(all_spans, s)
+    all_degrees <- c(all_degrees, d)
+    all_MSEs <- c(all_MSEs, res$MSE)
+    all_SSEs <- c(all_SSEs, res$SSE)
+    # all_N <- c(all_N, res$N_total)
+  }
+}
+# Get index for each degree
+deg1_index <- which(all_degrees == 1)
+deg2_index <- which(all_degrees == 2)
+
+# get top 3 indices with smallest MSE
+top1_index <- deg1_index[order(all_MSEs[deg1_index])[1:3]]
+top2_index <- deg2_index[order(all_MSEs[deg2_index])[1:3]]
+
+# Plot top 3 for degree 1
+for (i in top1_index) {
+  s <- all_spans[i]
+  fit <- myloess(x = ozone$temperature, y = ozone$ozone, span = s, degree = 1, show.plot = TRUE)
+  fit$loessplot + ggtitle(paste("Degree = 1, Span =", s))
+}
+
+# Plot top 3 for degree 2
+for (i in top2_indices) {
+  s <- all_spans[i]
+  fit <- myloess(x = ozone$temperature, y = ozone$ozone, span = s, degree = 2, show.plot = TRUE)
+  fit$loessplot + ggtitle(paste("Degree = 2, Span =", s))
+}
+results_table <- data.frame(
+  # N_total = all_N,
+  Span = all_spans,
+  Degree = all_degrees,
+  MSE = all_MSEs,
+  SSE = all_SSEs
+)
+
+print(results_table)
+```
+The first two fits (especially span = 0.25) likely overfit the data. The model is reacting to minor fluctuations in the data rather than modeling the true underlying trend, hence a sharp peak at x = 80, and 84. At span = 0.35 looks like a better generalization, it's smoother, and follows the main structure.
+
+### Section 3
+```{r}
+# LOESS comparison
+loess_fit <- loess(ozone ~ temperature, data = ozone, span = 0.5, degree = 1)
+ozone$fit_loess <- predict(loess_fit)
+
+ggplot(ozone, aes(x = temperature, y = ozone)) +
+  geom_point() +
+  geom_smooth(method = "loess", se = F, span = 0.5, formula = y ~ x) +
+  ggtitle("LOESS regression fit")
+
+```
+At low spans, myloess produces fits that are overfitting. The built in loess function might use a higher span, which naturally smooths things better. Span = 0.35 version begins to behave similarly to the built in one, implying it may be close to optimal.
+
+
+## Problem 2
+
+```{r}
+data("mcycle")
+
+# ggplot(mcycle, aes(x = times, y = accel)) + theme_bw() + geom_point()
+```
+
+## Section 1
+```{r}
+
+all_spans <- c()
+all_degrees <- c()
+all_MSEs <- c()
+all_SSEs <- c()
+all_N <- c()
+# Span sequence
+spans <- seq(0.25, 0.75, by = 0.05)
+
+# Loop through degrees and spans
+for (d in c(1, 2)) {
+  for (s in spans) {
+    res <- myloess(x = mcycle$times, y = mcycle$accel, span = s, degree = d, show.plot = FALSE)
+    
+    all_spans <- c(all_spans, s)
+    all_degrees <- c(all_degrees, d)
+    all_MSEs <- c(all_MSEs, res$MSE)
+    all_SSEs <- c(all_SSEs, res$SSE)
+    all_N <- c(all_N, res$N_total)
+  }
+}
+# Get index for each degree
+deg1_index <- which(all_degrees == 1)
+deg2_index <- which(all_degrees == 2)
+
+# get top 3 indices with smallest MSE
+top1_index <- deg1_index[order(all_MSEs[deg1_index])[1:3]]
+top2_index <- deg2_index[order(all_MSEs[deg2_index])[1:3]]
+
+# Plot top 3 for degree 1
+for (i in top1_index) {
+  s <- all_spans[i]
+  fit <- myloess(x = mcycle$times, y = mcycle$accel, span = s, degree = 1, show.plot = TRUE)
+  fit$loessplot + ggtitle(paste("Degree = 1, Span =", s))
+}
+
+# Plot top 3 for degree 2
+for (i in top2_indices) {
+  s <- all_spans[i]
+  fit <- myloess(x = mcycle$times, y = mcycle$accel, span = s, degree = 2, show.plot = TRUE)
+  fit$loessplot + ggtitle(paste("Degree = 2, Span =", s))
+}
+results_table <- data.frame(
+  N_total = all_N,
+  Span = all_spans,
+  Degree = all_degrees,
+  MSE = all_MSEs,
+  SSE = all_SSEs
+)
+
+print(results_table)
+```
+The model that provides the best fit is degree 2 span .35. It effectively captures the structure of the data without reacting excessively and overfilling the data, suggesting it generalizes decently well.
+
+## Section 2
+```{r}
+# LOESS comparison
+loess_fit <- loess(times ~ accel, data = mcycle, span = 0.5, degree = 1)
+mcycle$fit_loess <- predict(loess_fit)
+
+ggplot(mcycle, aes(x = times, y = accel)) +
+  geom_point() +
+  geom_smooth(method = "loess", se = F, span = 0.5, formula = y ~ x) +
+  ggtitle("LOESS regression fit")
+
+```
+The loess fit with degree 2 span .35 matches with the built in loess functions fit the best. It balances flexibility and smoothness, capturing the shape of the data without overfitting it.
+
+# Part 2
 
 
