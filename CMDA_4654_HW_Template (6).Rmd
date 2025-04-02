@@ -361,4 +361,418 @@ The loess fit with degree 2 span .35 matches with the built in loess functions f
 
 # Part 2
 
+# Problem 3
+
+```{r}
+mykNN <- function(train, test, y_train, y_test, k = 3, weighted = TRUE){
+  
+  # If the inputs are data frames, convert categorical predictors to dummy variables.
+  if(is.data.frame(train)){
+    train <- model.matrix(~ . - 1, data = train)
+  }
+  
+  
+  
+  # Ensure test and train are matrices (if test is a single observation, convert it to a row matrix)
+  if (is.null(dim(test))) {
+    test <- matrix(test, nrow = 1)
+  }
+  if (is.null(dim(train))) {
+    train <- matrix(train, nrow = 1)
+  }
+  # Standardize training data and apply the same scaling to test data.
+  t_means <- colMeans(train)
+  train_sds <- apply(train, 2, sd)
+  train <- scale(train, center = t_means, scale = train_sds)
+  test <- scale(test, center = t_means, scale = train_sds)
+
+  
+  n_test <- nrow(test)
+  
+  
+  # For classification, use a character vector,
+  # for regression, use a numeric vector.
+  classification <- is.factor(y_train)
+  if(classification){
+    yhat <- vector("character", n_test)
+  } else {
+    yhat <- numeric(n_test)
+  }
+  
+  # Loop over each test observation.
+  for(i in 1:n_test){
+
+    test_point <- test[i, ]
+    # Compute Euclidean distances 
+    distances <- sqrt(rowSums((train - matrix(test_point, 
+                                                nrow = nrow(train), 
+                                                ncol = ncol(train), 
+                                                byrow = TRUE))^2))
+    
+    # Identify the indices of the k nearest neighbors.
+    n_idx <- order(distances)[1:k]
+    n_distances <- distances[n_idx]
+    n_responses <- y_train[n_idx]
+    
+    # Classification: y_train is a factor.
+    if(classification){
+      if(weighted){
+        # Handle any zero distances by directly using those neighbors.
+        if(any(n_distances == 0)){
+          exact_matches <- n_responses[n_distances == 0]
+          prediction <- names(which.max(table(exact_matches)))
+        } else {
+          # Compute weights as inverse distances.
+          weights <- 1 / n_distances
+          # Sum weights for each class.
+          class_weights <- tapply(weights, n_responses, sum)
+          prediction <- names(which.max(class_weights))
+        }
+      } else {
+        # Unweighted: simple majority vote.
+        prediction <- names(which.max(table(n_responses)))
+      }
+      yhat[i] <- prediction
+      
+    } else {
+      # Regression option
+      if(weighted){
+        if(any(n_distances == 0)){
+
+          prediction <- mean(n_responses[n_distances == 0])
+        } else {
+          weights <- 1 / n_distances
+         
+          weights <- weights / sum(weights)
+          prediction <- sum(weights * n_responses)
+        }
+      } else {
+  
+        prediction <- mean(n_responses)
+      }
+      yhat[i] <- prediction
+    }
+  }
+  
+  # Return the output for each type
+  if(classification){
+    # Convert predictions to factor with same levels as y_train.
+    yhat <- factor(yhat, levels = levels(y_train))
+    # Calculate accuracy and error rate.
+    accuracy <- sum(yhat == y_test) / length(y_test)
+    error_rate <- 1 - accuracy
+    # Create confusion matrix.
+    confusion_mat <- table(Predicted = yhat, Actual = y_test)
+    
+    return(list(yhat = yhat,
+                accuracy = accuracy,
+                error_rate = error_rate,
+                confusion_matrix = confusion_mat,
+                k = k))
+  } else {
+    # For regression, compute residuals and errors.
+    residuals <- y_test - yhat
+    SSE <- sum(residuals^2)
+    MSE <- SSE / length(y_test)
+    
+    return(list(yhat = yhat,
+                residuals = residuals,
+                SSE = SSE,
+                n_test = length(y_test),
+                MSE = MSE,
+                k = k))
+  }
+}
+
+
+```
+
+# Prepare the data set
+```{r}
+# Some pre-processing
+library(ISLR)
+# Remove the name of the car model and change the origin to categorical with actual name
+Auto_new <- Auto[, -9]
+# Lookup table
+newOrigin <- c("USA", "European", "Japanese")
+Auto_new$origin <- factor(newOrigin[Auto_new$origin], newOrigin)
+
+# Look at the first 6 observations to see the final version
+head(Auto_new)
+```
+
+
+
+```{r}
+# Split data into 70% training and 30% testing
+set.seed(123)  # for reproducibility
+n <- nrow(Auto_new)
+train_indices <- sample(1:n, size = floor(0.7 * n))
+train_data <- Auto_new[train_indices, ]
+test_data  <- Auto_new[-train_indices, ]
+
+# Separate predictors and response.
+# We use all features (mpg, cylinders, displacement, horsepower, weight, acceleration, year) 
+# to predict origin.
+pred_cols <- setdiff(names(Auto_new), "origin")
+train_pred <- train_data[, pred_cols]
+test_pred  <- test_data[, pred_cols]
+train_response <- train_data$origin
+test_response  <- test_data$origin
+
+
+# We'll test several k values.
+k_vals <- c(1, 3, 5, 7, 9, 12, 15, 20)
+
+# Create result data frames for unweighted (regular) and weighted (dnkNN) methods.
+results_unweighted <- data.frame(k = k_vals, accuracy = NA)
+results_weighted   <- data.frame(k = k_vals, accuracy = NA)
+
+for(i in seq_along(k_vals)){
+  k_val <- k_vals[i]
+  
+  # Regular (unweighted) kNN
+  unweighted <- mykNN(train = train_pred, test = test_pred, 
+                   y_train = train_response, y_test = test_response, 
+                   k = k_val, weighted = FALSE)
+  results_unweighted$accuracy[i] <- unweighted$accuracy
+  
+  # Distance weighted kNN
+  weighted <- mykNN(train = train_pred, test = test_pred, 
+                 y_train = train_response, y_test = test_response, 
+                 k = k_val, weighted = TRUE)
+  results_weighted$accuracy[i] <- weighted$accuracy
+}
+
+
+kable(results_unweighted, caption = "Accuracy for Regular kNN")
+kable(results_weighted, caption = "Accuracy for Distance Weighted kNN")
+
+# Plot accuracy vs k for both methods
+results_unweighted$Method <- "Regular"
+results_weighted$Method   <- "Weighted"
+results_all <- rbind(results_unweighted, results_weighted)
+
+ggplot(results_all, aes(x = k, y = accuracy, color = Method)) +
+  geom_point(size = 3) +
+  
+  labs(title = "Accuracy vs. Number of Neighbors (k)",
+       x = "Number of Neighbors (k)",
+       y = "Accuracy") +
+  theme_minimal()
+
+# Determine best for each method:
+best_k_unweighted <- results_unweighted$k[which.max(results_unweighted$accuracy)]
+best_acc_unweighted <- max(results_unweighted$accuracy)
+best_k_weighted <- results_weighted$k[which.max(results_weighted$accuracy)]
+best_acc_weighted <- max(results_weighted$accuracy)
+
+cat("Best k for Regular kNN: ", best_k_unweighted, "with accuracy", best_acc_unweighted, "\n")
+cat("Best k for Weighted kNN: ", best_k_weighted, "with accuracy", best_acc_weighted, "\n")
+
+# Show final confusion matrix for the best k for each method:
+final_unw <- mykNN(train = train_scaled, test = test_scaled, 
+                   y_train = train_response, y_test = test_response, 
+                   k = best_k_unweighted, weighted = FALSE)
+final_w <- mykNN(train = train_scaled, test = test_scaled, 
+                 y_train = train_response, y_test = test_response, 
+                 k = best_k_weighted, weighted = TRUE)
+
+cat("Confusion Matrix for Regular kNN (k =", best_k_unweighted, "):\n")
+print(final_unw$confusion_matrix)
+cat("Accuracy:", final_unw$accuracy, "\n\n")
+
+cat("Confusion Matrix for Distance Weighted kNN (k =", best_k_weighted, "):\n")
+print(final_w$confusion_matrix)
+cat("Accuracy:", final_w$accuracy, "\n\n")
+
+# Plot MPG vs. Weight for k = 5 and k = 10
+
+k_ <- mykNN(train = train_scaled, test = test_scaled, 
+               y_train = train_response, y_test = test_response, 
+               k = 5, weighted = TRUE)
+k_10 <- mykNN(train = train_scaled, test = test_scaled, 
+                y_train = train_response, y_test = test_response, 
+                k = 10, weighted = TRUE)
+
+# Prepare data for plotting:
+
+train_plot <- train_data[, c("mpg", "weight", "origin")]
+train_plot$set <- "Train"
+
+test_plot <- test_data[, c("mpg", "weight", "origin")]
+test_plot$set <- "Test"
+
+# Plot for k = 5
+p1 <- ggplot() +
+  geom_point(data = train_plot, aes(x = weight, y = mpg, color = origin),
+             shape = 16, alpha = 0.5, size = 3) +
+  geom_point(data = test_plot, aes(x = weight, y = mpg, color = origin),
+             shape = 18, size = 4) +
+  labs(title = "MPG vs. Weight (k = 5, Weighted kNN)",
+       x = "Weight", y = "MPG") +
+  theme_minimal()
+print(p1)
+
+# Plot for k = 10
+p2 <- ggplot() +
+  geom_point(data = train_plot, aes(x = weight, y = mpg, color = origin),
+             shape = 16, alpha = 0.5, size = 3) +
+  geom_point(data = test_plot, aes(x = weight, y = mpg, color = origin),
+             shape = 18, size = 4) +
+  labs(title = "MPG vs. Weight (k = 10, Weighted kNN)",
+       x = "Weight", y = "MPG") +
+  theme_minimal()
+print(p2)
+
+```
+
+# Check if the my function is different from the built in function
+```{r}
+
+
+
+# Use custom Knn function for unweighted
+my_knn_result <- mykNN(train = train_scaled, test = test_scaled, 
+                       y_train = train_response, y_test = test_response, 
+                       k = best_k_unweighted, weighted = FALSE)
+
+# Use the built-in knn() function for unweighted kNN.
+builtin_knn <- knn(train = train_scaled, test = test_scaled, 
+                        cl = train_response, k = best_k_unweighted)
+
+# Compare predictions by creating a confusion table.
+comparison_table <- table(Custom = my_knn_result$yhat, BuiltIn = builtin_knn)
+print(comparison_table)
+
+# Calculate accuracy for both methods.
+accuracy_builtin <- mean(builtin_knn == test_response)
+accuracy_custom <- my_knn_result$accuracy
+
+cat("Built-in knn accuracy:", accuracy_builtin, "\n")
+cat("Custom mykNN accuracy:", accuracy_custom, "\n")
+```
+
+# Problem 4
+## Part a
+```{r}
+load("D:\\stats\\ozone.RData")
+data("ozone")
+ggplot(ozone, aes(x = temperature, y = ozone)) + theme_bw() + geom_point()
+```
+
+```{r}
+# Split the data set
+set.seed(123)  # For reproducibility
+n_total <- nrow(ozone)
+train_idx <- sample(1:n_total, 70)
+train_ozone <- ozone[train_idx, ]
+test_ozone  <- ozone[-train_idx, ]
+
+
+# For the regression fit, we'll use only the predictor 'temperature'.
+# We also standardize the predictor based on the training set.
+train_temp <- data.frame(temperature = train_ozone$temperature)
+test_temp  <- data.frame(temperature = test_ozone$temperature)
+
+# Define k values to try
+k_set <- c(1, 3, 5, 10, 20)
+
+# Prepare a data frame to store the MSE results.
+results<- data.frame(k = k_set, MSE = NA)
+
+# Loop over each k value and obtain predictions using dwkNN.
+for(i in seq_along(k_set)){
+  k_val <- k_set[i]
+  fit <- mykNN(train = train_temp,
+               test  = test_temp,
+               y_train = train_ozone$ozone,
+               y_test  = test_ozone$ozone,
+               k = k_val,
+               weighted = TRUE)
+  results_a$MSE[i] <- fit$MSE
+}
+
+# Display the results table 
+kable(results_a, caption = "Test MSE for dwkNN (ozone ~ temperature) for various k")
+
+# Choose the best k for plotting the regression line.
+best_k_a <- results_a$k[which.min(results_a$MSE)]
+cat("Best k in part (a):", best_k_a, "with MSE =", min(results_a$MSE), "\n")
+
+# Create a grid of temperature values for plotting the regression line.
+temp_grid <- data.frame(temperature = seq(min(train_temp$temperature),
+                                               max(train_temp$temperature),
+                                               length.out = 100))
+
+# Obtain predictions on the grid using the best k.
+grid_fit <- mykNN(train = train_temp,
+                  test = temp_grid,
+                  y_train = train_ozone$ozone,
+                  y_test = NA,  
+                  k = best_k_a,
+                  weighted = TRUE)
+grid_pred <- grid_fit$yhat
+
+# Ploting
+
+
+plot_a <- ggplot() +
+  geom_point(data = train_ozone, aes(x = temperature, y = ozone), 
+             color = "black", size = 3) +
+  geom_point(data = test_ozone, aes(x = temperature, y = ozone), 
+             color = "blue", size = 3) +
+  geom_line(data = data.frame(temperature = temp_grid$temperature,
+                              ozone = grid_pred),
+            aes(x = temperature, y = ozone),
+            color = "red", size = 1) +
+  labs(title = paste("dwkNN Regression (ozone ~ temperature) with k =", best_k_a),
+       x = "Temperature",
+       y = "Ozone") +
+  theme_minimal()
+print(plot_a)
+
+```
+### Comment on the results
+As we could see from the results table, k = 3 gives the lowest MSE, while k = 1 seems to over fit the data while k = 5, and k = 10 over smooth the data. The train data and the test data show that the data have a strong overall upward trend but when the temperature is high there is a considerable fluctuated factors. In short, the MSE is still relatively large so it could not alone explain the variability ozone.
+
+## Part b
+```{r}
+# Setup predictors variable
+pred_cols <- setdiff(names(ozone), "ozone")
+train_pred <- train_ozone[, pred_cols]
+test_pred  <- test_ozone[, pred_cols]
+
+
+
+
+k_set <- 1:20
+results <- data.frame(k = k_set, MSE = NA)
+
+for(k_val in k_set){
+  fit_line <- mykNN(train = train_pred,
+                 test = test_pred,
+                 y_train = train_ozone$ozone,
+                 y_test = test_ozone$ozone,
+                 k = k_val,
+                 weighted = TRUE)
+  results$MSE[results$k == k_val] <- fit_line$MSE
+}
+
+# Display the results table 
+kable(results, caption = "Test MSE for dwkNN (ozone ~ all predictors) for various k")
+
+# Plot MSE versus k for part (b)
+plot <- ggplot(results, aes(x = k, y = MSE)) +
+  geom_point(size = 3) +
+  geom_line() +
+  labs(title = "Test MSE vs. k (dwkNN with all predictors)",
+       x = "Number of Neighbors (k)",
+       y = "Test MSE") +
+  theme_minimal()
+print(plot)
+```
+### Comment on the results
+In this case, when we increased k from 1 to 20, the prediction error kept dropping and then flattened out, meaning that using around 20 neighbors gave us the best stable prediction. It suggests that for our data, looking at a broader group (around 20 neighbors) is beneficial, and we didn't see the error getting worse within the range we tested.
+Additionally we could use a broader range of case for a more precise prediction.
 
