@@ -92,30 +92,29 @@ knitr::opts_chunk$set(echo = TRUE,
 #
 # If show.plot = TRUE then you must show a plot of either the final fit
 
-myloess <- function(x, y, span = 0.5, degree = 1, show.plot = TRUE){
+myloess <- function(x, y, span = 0.5, degree = 1, show.plot = TRUE) {
   
   N_total <- length(x)
   yhat <- numeric(N_total)
   
+  # Capture variable names for axis labeling
+  x_label <- deparse(substitute(x))
+  y_label <- deparse(substitute(y))
+
   # Neighborhood size
-  # round because you cant have decimal
   k <- ceiling(span * N_total)
   
   for (i in 1:N_total) {
-    
     dists <- abs(x - x[i])
     
-    # Get indices of the nearest neighbors
     neighbors <- order(dists)[1:k]
     x_local <- x[neighbors]
     y_local <- y[neighbors]
     
-    # tukey tri-weight
     D <- max(abs(x_local - x[i]))
     u <- abs(x_local - x[i]) / D
     w <- ifelse(u < 1, (1 - abs(u)^3)^3, 0)
     
-    # create the X matrix based on degree
     if (degree == 1) {
       X <- cbind(1, x_local)
       x_i_row <- c(1, x[i])
@@ -124,27 +123,24 @@ myloess <- function(x, y, span = 0.5, degree = 1, show.plot = TRUE){
       x_i_row <- c(1, x[i], x[i]^2)
     }
     
-    # Weighted least squares (X^T W X)^(-1) X^T W y
     W <- diag(w)
     beta <- solve(t(X) %*% W %*% X) %*% (t(X) %*% W %*% y_local)
     
-    # predict yhat at x[i]
     yhat[i] <- x_i_row %*% beta
   }
   
-  # calculate errors
   SSE <- sum((y - yhat)^2)
   MSE <- SSE / N_total
   
-  # Build the plot
   df_plot <- data.frame(x = x, y = y, yhat = yhat)
   loessplot <- ggplot(df_plot, aes(x = x)) +
-  geom_point(aes(y = y)) +
-  geom_line(aes(y = yhat), color = "blue", size = 1) +
-  labs(
-    title = paste("LOESS - Degree:", degree, ", Span:", round(span, 2)),
-    y = "y / yhat")
-
+    geom_point(aes(y = y)) +
+    geom_line(aes(y = yhat), color = "blue", size = 1) +
+    labs(
+      title = paste("LOESS - Degree:", degree, ", Span:", round(span, 2)),
+      x = x_label,
+      y = y_label
+    )
   
   if (show.plot) {
     print(loessplot)
@@ -253,7 +249,7 @@ for (i in top1_index) {
 }
 
 # Plot top 3 for degree 2
-for (i in top2_indices) {
+for (i in top2_index) {
   s <- all_spans[i]
   fit <- myloess(x = ozone$temperature, y = ozone$ozone, span = s, degree = 2, show.plot = TRUE)
   fit$loessplot + ggtitle(paste("Degree = 2, Span =", s))
@@ -332,7 +328,7 @@ for (i in top1_index) {
 }
 
 # Plot top 3 for degree 2
-for (i in top2_indices) {
+for (i in top2_index) {
   s <- all_spans[i]
   fit <- myloess(x = mcycle$times, y = mcycle$accel, span = s, degree = 2, show.plot = TRUE)
   fit$loessplot + ggtitle(paste("Degree = 2, Span =", s))
