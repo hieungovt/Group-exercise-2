@@ -1,6 +1,6 @@
 ---
 title: "CMDA-4654  \n Group Excercise 2"
-author: "Gavin Lopez, Hieu"
+author: "Gavin Lopez, Hieu Ngo"
 date: "3/31/2025"
 output:
   pdf_document:
@@ -42,6 +42,7 @@ urlcolor: blue
 library(knitr) # I recommend doing this here
 library(ggplot2)
 library(MASS)
+library(class)
 # Although you can call functions from a library using the following notation
 #  without loading the entire library.
 knitr::opts_chunk$set(echo = TRUE, 
@@ -176,7 +177,7 @@ myloess <- function(x, y, span = 0.5, degree = 1, show.plot = TRUE) {
 
 ```{r}
 load("C:/Users/gavin/OneDrive/Documents/CMDA 4654/Group Exercise 2/ozone.RData")
-# data("ozone")
+data("ozone")
 
 # ggplot(ozone, aes(x = temperature, y = ozone)) + theme_bw() + geom_point()
 ```
@@ -483,8 +484,6 @@ mykNN <- function(train, test, y_train, y_test, k = 3, weighted = TRUE){
                 k = k))
   }
 }
-
-
 ```
 
 # Prepare the data set
@@ -656,9 +655,9 @@ cat("Custom mykNN accuracy:", accuracy_custom, "\n")
 # Problem 4
 ## Part a
 ```{r}
-load("D:\\stats\\ozone.RData")
-data("ozone")
-ggplot(ozone, aes(x = temperature, y = ozone)) + theme_bw() + geom_point()
+# load("C:/Users/gavin/OneDrive/Documents/CMDA 4654/Group Exercise 2/ozone.RData")
+# data("ozone")
+# ggplot(ozone, aes(x = temperature, y = ozone)) + theme_bw() + geom_point()
 ```
 
 ```{r}
@@ -690,15 +689,15 @@ for(i in seq_along(k_set)){
                y_test  = test_ozone$ozone,
                k = k_val,
                weighted = TRUE)
-  results_a$MSE[i] <- fit$MSE
+  results_all$MSE[i] <- fit$MSE
 }
 
 # Display the results table 
-kable(results_a, caption = "Test MSE for dwkNN (ozone ~ temperature) for various k")
+kable(results_all, caption = "Test MSE for dwkNN (ozone ~ temperature) for various k")
 
 # Choose the best k for plotting the regression line.
-best_k_a <- results_a$k[which.min(results_a$MSE)]
-cat("Best k in part (a):", best_k_a, "with MSE =", min(results_a$MSE), "\n")
+best_k_a <- results_all$k[which.min(results_all$MSE)]
+cat("Best k in part (a):", best_k_a, "with MSE =", min(results_all$MSE), "\n")
 
 # Create a grid of temperature values for plotting the regression line.
 temp_grid <- data.frame(temperature = seq(min(train_temp$temperature),
@@ -775,4 +774,3 @@ print(plot)
 ### Comment on the results
 In this case, when we increased k from 1 to 20, the prediction error kept dropping and then flattened out, meaning that using around 20 neighbors gave us the best stable prediction. It suggests that for our data, looking at a broader group (around 20 neighbors) is beneficial, and we didn't see the error getting worse within the range we tested.
 Additionally we could use a broader range of case for a more precise prediction.
-
