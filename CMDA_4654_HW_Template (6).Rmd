@@ -571,10 +571,10 @@ cat("Best k for Regular kNN: ", best_k_unweighted, "with accuracy", best_acc_unw
 cat("Best k for Weighted kNN: ", best_k_weighted, "with accuracy", best_acc_weighted, "\n")
 
 # Show final confusion matrix for the best k for each method:
-final_unw <- mykNN(train = train_scaled, test = test_scaled, 
+final_unw <- mykNN(train = train_pred, test = test_pred, 
                    y_train = train_response, y_test = test_response, 
                    k = best_k_unweighted, weighted = FALSE)
-final_w <- mykNN(train = train_scaled, test = test_scaled, 
+final_w <- mykNN(train = train_pred, test = test_pred, 
                  y_train = train_response, y_test = test_response, 
                  k = best_k_weighted, weighted = TRUE)
 
