@@ -588,10 +588,10 @@ cat("Accuracy:", final_w$accuracy, "\n\n")
 
 # Plot MPG vs. Weight for k = 5 and k = 10
 
-k_ <- mykNN(train = train_scaled, test = test_scaled, 
+k_ <- mykNN(train = train_pred, test = test_pred, 
                y_train = train_response, y_test = test_response, 
                k = 5, weighted = TRUE)
-k_10 <- mykNN(train = train_scaled, test = test_scaled, 
+k_10 <- mykNN(train = train_pred, test = test_pred, 
                 y_train = train_response, y_test = test_response, 
                 k = 10, weighted = TRUE)
 
@@ -633,12 +633,12 @@ print(p2)
 
 
 # Use custom Knn function for unweighted
-my_knn_result <- mykNN(train = train_scaled, test = test_scaled, 
+my_knn_result <- mykNN(train = train_pred, test = test_pred, 
                        y_train = train_response, y_test = test_response, 
                        k = best_k_unweighted, weighted = FALSE)
 
 # Use the built-in knn() function for unweighted kNN.
-builtin_knn <- knn(train = train_scaled, test = test_scaled, 
+builtin_knn <- knn(train = train_pred, test = test_pred, 
                         cl = train_response, k = best_k_unweighted)
 
 # Compare predictions by creating a confusion table.
